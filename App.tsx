@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import CanvasLayer from './components/CanvasLayer';
 import Toolbar from './components/Toolbar';
 import PropertiesBar from './components/PropertiesBar';
 import AIPanel from './components/AIPanel';
+import HelpModal from './components/HelpModal';
 import { ToolType, DrawStyle } from './types';
 import { DEFAULT_STROKE_WIDTH, COLORS } from './constants';
 import { analyzeDrawing, generateBackgroundImage } from './services/geminiService';
@@ -23,8 +25,12 @@ function App() {
   // Background
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
 
-  // AI State
+  // UI State
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+  const [isUIHidden, setIsUIHidden] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  
+  // AI State
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -53,12 +59,6 @@ function App() {
   };
 
   const handleClear = () => {
-    // Push a blank state if we want clear to be undoable, 
-    // but for now let's just reset canvas via a hack or adding a blank frame
-    // Ideally, CanvasLayer listens to a clear signal.
-    // Simplest approach: Reset history stack to empty and index to -1 effectively clears it via the effect in CanvasLayer
-    // But to make it undoable, we need to capture a blank frame.
-    // For MVP, hard reset:
     setHistoryStack([]);
     setHistoryIndex(-1);
     setBackgroundImage(null);
@@ -69,8 +69,6 @@ function App() {
     if (canvas) {
       const link = document.createElement('a');
       link.download = `lumina-draw-${Date.now()}.png`;
-      // We want to composite background if it exists, but complex. 
-      // Just saving drawing layer for now.
       link.href = canvas.toDataURL();
       link.click();
     }
@@ -109,8 +107,6 @@ function App() {
     setAiResult(null);
 
     try {
-      // Get current canvas state
-      // Ideally CanvasLayer would expose this, but querySelector is safe here given structure
       const canvas = document.querySelector('canvas') as HTMLCanvasElement;
       if (!canvas) throw new Error("Canvas not found");
       
@@ -141,7 +137,8 @@ function App() {
   };
 
   return (
-    <div className="relative w-screen h-screen bg-gray-900 overflow-hidden text-white font-sans selection:bg-primary-500/30">
+    // Changed background to transparent/dark-overlay style
+    <div className={`relative w-screen h-screen overflow-hidden text-white font-sans ${backgroundImage ? 'bg-gray-900/50' : 'bg-gray-900'}`}>
       
       {/* Canvas Area */}
       <CanvasLayer 
@@ -162,19 +159,24 @@ function App() {
         onUndo={handleUndo}
         onRedo={handleRedo}
         onAIToggle={() => setIsAIPanelOpen(!isAIPanelOpen)}
-        canUndo={historyIndex >= -1 && historyStack.length > 0} // Simplified logic
+        onToggleUI={() => setIsUIHidden(!isUIHidden)}
+        onOpenHelp={() => setIsHelpOpen(true)}
+        isUIHidden={isUIHidden}
+        canUndo={historyIndex >= -1 && historyStack.length > 0}
         canRedo={historyIndex < historyStack.length - 1}
       />
 
-      <PropertiesBar 
-        color={style.color}
-        setColor={(c) => setStyle(prev => ({ ...prev, color: c }))}
-        width={style.width}
-        setWidth={(w) => setStyle(prev => ({ ...prev, width: w }))}
-      />
+      {!isUIHidden && (
+        <PropertiesBar 
+          color={style.color}
+          setColor={(c) => setStyle(prev => ({ ...prev, color: c }))}
+          width={style.width}
+          setWidth={(w) => setStyle(prev => ({ ...prev, width: w }))}
+        />
+      )}
 
       <AIPanel 
-        isOpen={isAIPanelOpen}
+        isOpen={isAIPanelOpen && !isUIHidden}
         onClose={() => setIsAIPanelOpen(false)}
         onAnalyze={handleAIAnalyze}
         onGenerate={handleAIGenerate}
@@ -183,10 +185,15 @@ function App() {
         error={aiError}
       />
       
-      {/* Hint overlay for new users */}
-      {historyStack.length === 0 && !backgroundImage && !isAIPanelOpen && (
+      <HelpModal 
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+      />
+
+      {/* Hint overlay for new users - hidden when drawing or UI hidden */}
+      {historyStack.length === 0 && !backgroundImage && !isAIPanelOpen && !isUIHidden && !isHelpOpen && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-gray-500 text-sm pointer-events-none select-none animate-pulse">
-          Start drawing or paste (Ctrl+V) an image
+          Start drawing, paste (Ctrl+V) an image, or click ? for help
         </div>
       )}
     </div>

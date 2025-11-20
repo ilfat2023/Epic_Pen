@@ -1,4 +1,5 @@
 export enum ToolType {
+  CURSOR = 'CURSOR', // New: Click-through/No-draw mode
   PEN = 'PEN',
   HIGHLIGHTER = 'HIGHLIGHTER',
   ERASER = 'ERASER',
@@ -7,7 +8,7 @@ export enum ToolType {
   LINE = 'LINE',
   ARROW = 'ARROW',
   TEXT = 'TEXT',
-  SELECT = 'SELECT' // Basic move/pan if we had infinite canvas, reserved
+  SELECT = 'SELECT'
 }
 
 export interface DrawingPoint {

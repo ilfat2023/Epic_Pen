@@ -87,6 +87,8 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
   };
 
   const startDrawing = (e: React.MouseEvent) => {
+    if (tool === ToolType.CURSOR) return;
+    
     const { x, y } = getMousePos(e);
     setStartPos({ x, y });
     setIsDrawing(true);
@@ -112,7 +114,8 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
   };
 
   const draw = (e: React.MouseEvent) => {
-    if (!isDrawing) return;
+    if (!isDrawing || tool === ToolType.CURSOR) return;
+    
     const { x, y } = getMousePos(e);
     const ctx = canvasRef.current?.getContext('2d');
     const tempCtx = tempCanvasRef.current?.getContext('2d');
@@ -187,12 +190,19 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
     ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
   };
 
+  // "Epic Pen" click-through logic:
+  // If tool is CURSOR, we use pointer-events-none to let mouse events pass through to elements behind
+  // (or just stop interacting with canvas)
+  const layerClass = tool === ToolType.CURSOR 
+    ? "absolute inset-0 z-10 touch-none pointer-events-none" 
+    : "absolute inset-0 z-10 touch-none cursor-crosshair";
+
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 overflow-hidden bg-gray-900">
+    <div ref={containerRef} className="absolute inset-0 z-0 overflow-hidden bg-transparent">
       {/* Background Image Layer */}
       {backgroundImage && (
         <div 
-           className="absolute inset-0 z-0 bg-contain bg-center bg-no-repeat opacity-80 pointer-events-none"
+           className="absolute inset-0 z-0 bg-contain bg-center bg-no-repeat opacity-100 pointer-events-none"
            style={{ backgroundImage: `url(${backgroundImage})` }}
         />
       )}
@@ -200,14 +210,14 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
       {/* Main Drawing Canvas */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 z-10 touch-none cursor-crosshair"
+        className={layerClass}
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
       />
 
-      {/* Temporary Shape Preview Canvas */}
+      {/* Temporary Shape Preview Canvas - Click through always, as it's for visual feedback only */}
       <canvas
         ref={tempCanvasRef}
         className="absolute inset-0 z-20 pointer-events-none"

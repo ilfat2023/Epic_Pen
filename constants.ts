@@ -18,6 +18,7 @@ export const COLORS = [
 ];
 
 export const TOOL_CONFIGS = {
+  [ToolType.CURSOR]: { label: 'Cursor', icon: 'MousePointer2' },
   [ToolType.PEN]: { label: 'Pen', icon: 'Pen' },
   [ToolType.HIGHLIGHTER]: { label: 'Highlighter', icon: 'Highlighter' },
   [ToolType.ERASER]: { label: 'Eraser', icon: 'Eraser' },
