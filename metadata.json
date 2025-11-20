@@ -1,0 +1,5 @@
+{
+  "name": "Lumina Draw AI",
+  "description": "A next-generation screen annotation and drawing tool powered by Gemini. Features smart drawing layers, infinite canvas capabilities, and AI-driven content analysis and generation.",
+  "requestFramePermissions": []
+}
