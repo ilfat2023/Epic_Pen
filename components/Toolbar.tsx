@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Pen, Highlighter, Eraser, Square, Circle, Minus, ArrowUpRight, 
-  Trash2, Download, Sparkles, Undo, Redo, MousePointer2, Eye, EyeOff, Menu, HelpCircle
+  Trash2, Download, Sparkles, Undo, Redo, MousePointer2, Eye, EyeOff, Menu, HelpCircle, Type, LayoutTemplate
 } from 'lucide-react';
 import { ToolType } from '../types';
 
@@ -16,6 +16,8 @@ interface ToolbarProps {
   onAIToggle: () => void;
   onToggleUI: () => void;
   onOpenHelp: () => void;
+  onToggleBg: () => void;
+  bgMode: string;
   isUIHidden: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -31,6 +33,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onAIToggle,
   onToggleUI,
   onOpenHelp,
+  onToggleBg,
+  bgMode,
   isUIHidden,
   canUndo,
   canRedo
@@ -41,6 +45,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     { type: ToolType.PEN, icon: <Pen size={20} />, label: 'Pen' },
     { type: ToolType.HIGHLIGHTER, icon: <Highlighter size={20} />, label: 'Highlighter' },
     { type: ToolType.ERASER, icon: <Eraser size={20} />, label: 'Eraser' },
+    { type: ToolType.TEXT, icon: <Type size={20} />, label: 'Text' },
     { type: ToolType.ARROW, icon: <ArrowUpRight size={20} />, label: 'Arrow' },
     { type: ToolType.RECTANGLE, icon: <Square size={20} />, label: 'Rect' },
     { type: ToolType.CIRCLE, icon: <Circle size={20} />, label: 'Circle' },
@@ -62,6 +67,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
     );
   }
 
+  const getBgLabel = () => {
+    switch(bgMode) {
+      case 'transparent': return 'Glass';
+      case 'dark': return 'Dark';
+      case 'light': return 'Whiteboard';
+      case 'grid': return 'Grid';
+      default: return 'BG';
+    }
+  };
+
   return (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-50">
       {/* Visibility Toggle Floating Above */}
@@ -73,9 +88,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <EyeOff size={16} />
         </button>
+        <button
+           onClick={onToggleBg}
+           className="px-3 py-2 rounded-full bg-gray-850/90 backdrop-blur-md border border-gray-700 text-xs font-bold text-gray-400 hover:text-white hover:bg-gray-750 transition-all uppercase tracking-wider"
+           title="Toggle Background Mode"
+        >
+          {getBgLabel()}
+        </button>
       </div>
 
-      <div className="bg-gray-850/90 backdrop-blur-md border border-gray-700 rounded-2xl p-3 shadow-2xl flex flex-col gap-2">
+      <div className="bg-gray-850/90 backdrop-blur-md border border-gray-700 rounded-2xl p-3 shadow-2xl flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
         <div className="flex flex-col gap-2 border-b border-gray-700 pb-2">
           {tools.map((tool) => (
             <button

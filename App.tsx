@@ -24,6 +24,7 @@ function App() {
   
   // Background
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [bgMode, setBgMode] = useState<string>('transparent'); // transparent, dark, light, grid
 
   // UI State
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
@@ -72,6 +73,13 @@ function App() {
       link.href = canvas.toDataURL();
       link.click();
     }
+  };
+
+  const toggleBgMode = () => {
+    const modes = ['transparent', 'dark', 'light', 'grid'];
+    const currentIndex = modes.indexOf(bgMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setBgMode(modes[nextIndex]);
   };
 
   const handlePaste = useCallback((e: ClipboardEvent) => {
@@ -137,8 +145,7 @@ function App() {
   };
 
   return (
-    // Changed background to transparent/dark-overlay style
-    <div className={`relative w-screen h-screen overflow-hidden text-white font-sans ${backgroundImage ? 'bg-gray-900/50' : 'bg-gray-900'}`}>
+    <div className={`relative w-screen h-screen overflow-hidden font-sans ${bgMode === 'transparent' ? 'bg-transparent' : 'bg-gray-900'}`}>
       
       {/* Canvas Area */}
       <CanvasLayer 
@@ -148,6 +155,7 @@ function App() {
         onSnapshotUpdate={handleSnapshotUpdate}
         historyIndex={historyIndex}
         historyStack={historyStack}
+        bgMode={bgMode}
       />
 
       {/* UI Overlays */}
@@ -161,6 +169,8 @@ function App() {
         onAIToggle={() => setIsAIPanelOpen(!isAIPanelOpen)}
         onToggleUI={() => setIsUIHidden(!isUIHidden)}
         onOpenHelp={() => setIsHelpOpen(true)}
+        onToggleBg={toggleBgMode}
+        bgMode={bgMode}
         isUIHidden={isUIHidden}
         canUndo={historyIndex >= -1 && historyStack.length > 0}
         canRedo={historyIndex < historyStack.length - 1}
@@ -192,8 +202,9 @@ function App() {
 
       {/* Hint overlay for new users - hidden when drawing or UI hidden */}
       {historyStack.length === 0 && !backgroundImage && !isAIPanelOpen && !isUIHidden && !isHelpOpen && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-gray-500 text-sm pointer-events-none select-none animate-pulse">
-          Start drawing, paste (Ctrl+V) an image, or click ? for help
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-gray-500 text-sm pointer-events-none select-none animate-pulse text-center">
+          Start drawing, paste (Ctrl+V) an image<br/>
+          or toggle BG mode (top left)
         </div>
       )}
     </div>

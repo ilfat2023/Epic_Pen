@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+
+import React, { useRef, useEffect, useState } from 'react';
 import { ToolType, DrawStyle } from '../types';
 
 interface CanvasLayerProps {
@@ -8,6 +9,7 @@ interface CanvasLayerProps {
   onSnapshotUpdate: (dataUrl: string) => void; // For history
   historyIndex: number;
   historyStack: string[];
+  bgMode: string;
 }
 
 const CanvasLayer: React.FC<CanvasLayerProps> = ({
@@ -16,7 +18,8 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
   backgroundImage,
   onSnapshotUpdate,
   historyIndex,
-  historyStack
+  historyStack,
+  bgMode
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tempCanvasRef = useRef<HTMLCanvasElement>(null); // For previewing shapes
@@ -24,6 +27,12 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
   
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+
+  // Text Tool State
+  const [isTyping, setIsTyping] = useState(false);
+  const [textPos, setTextPos] = useState({ x: 0, y: 0 });
+  const [textContent, setTextContent] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Initialize and Resize
   useEffect(() => {
@@ -76,6 +85,13 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
     }
   }, [historyIndex, historyStack]);
 
+  // Focus input when typing starts
+  useEffect(() => {
+    if (isTyping && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isTyping]);
+
   // Drawing Logic Helpers
   const getMousePos = (e: React.MouseEvent | MouseEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
@@ -90,6 +106,19 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
     if (tool === ToolType.CURSOR) return;
     
     const { x, y } = getMousePos(e);
+
+    // Text Tool Logic
+    if (tool === ToolType.TEXT) {
+      if (isTyping) {
+        finishText(); // Commit previous text if any
+      }
+      setStartPos({ x, y });
+      setTextPos({ x, y });
+      setIsTyping(true);
+      setTextContent("");
+      return;
+    }
+
     setStartPos({ x, y });
     setIsDrawing(true);
 
@@ -114,7 +143,7 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
   };
 
   const draw = (e: React.MouseEvent) => {
-    if (!isDrawing || tool === ToolType.CURSOR) return;
+    if (!isDrawing || tool === ToolType.CURSOR || tool === ToolType.TEXT) return;
     
     const { x, y } = getMousePos(e);
     const ctx = canvasRef.current?.getContext('2d');
@@ -177,6 +206,37 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
     }
   };
 
+  const finishText = () => {
+    if (!isTyping || !textContent.trim()) {
+      setIsTyping(false);
+      setTextContent("");
+      return;
+    }
+
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) {
+      ctx.font = `bold ${Math.max(16, style.width * 3)}px sans-serif`;
+      ctx.fillStyle = style.color;
+      ctx.textBaseline = 'top';
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1.0;
+      
+      // Handle multi-line
+      const lines = textContent.split('\n');
+      const lineHeight = Math.max(20, style.width * 4);
+      lines.forEach((line, i) => {
+        ctx.fillText(line, textPos.x, textPos.y + (i * lineHeight));
+      });
+
+      if (canvasRef.current) {
+        onSnapshotUpdate(canvasRef.current.toDataURL());
+      }
+    }
+
+    setIsTyping(false);
+    setTextContent("");
+  };
+
   const drawArrow = (ctx: CanvasRenderingContext2D, fromx: number, fromy: number, tox: number, toy: number) => {
     const headlen = 10 * (style.width / 4 + 0.5); // scaling head with width
     const dx = tox - fromx;
@@ -191,15 +251,37 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
   };
 
   // "Epic Pen" click-through logic:
-  // If tool is CURSOR, we use pointer-events-none to let mouse events pass through to elements behind
-  // (or just stop interacting with canvas)
   const layerClass = tool === ToolType.CURSOR 
     ? "absolute inset-0 z-10 touch-none pointer-events-none" 
     : "absolute inset-0 z-10 touch-none cursor-crosshair";
 
+  // Grid Background Pattern
+  const getGridStyle = () => {
+    if (bgMode === 'grid') {
+      return {
+        backgroundImage: 'linear-gradient(to right, #334155 1px, transparent 1px), linear-gradient(to bottom, #334155 1px, transparent 1px)',
+        backgroundSize: '40px 40px',
+        backgroundColor: '#0f172a'
+      };
+    }
+    return {};
+  };
+
   return (
     <div ref={containerRef} className="absolute inset-0 z-0 overflow-hidden bg-transparent">
-      {/* Background Image Layer */}
+      
+      {/* Dynamic Background Layer (Grid, White, Dark) */}
+      {bgMode !== 'transparent' && (
+        <div 
+          className={`absolute inset-0 z-0 pointer-events-none ${
+            bgMode === 'light' ? 'bg-white' : 
+            bgMode === 'dark' ? 'bg-gray-900' : ''
+          }`}
+          style={getGridStyle()}
+        />
+      )}
+
+      {/* Image Layer */}
       {backgroundImage && (
         <div 
            className="absolute inset-0 z-0 bg-contain bg-center bg-no-repeat opacity-100 pointer-events-none"
@@ -217,11 +299,41 @@ const CanvasLayer: React.FC<CanvasLayerProps> = ({
         onMouseLeave={stopDrawing}
       />
 
-      {/* Temporary Shape Preview Canvas - Click through always, as it's for visual feedback only */}
+      {/* Temporary Shape Preview Canvas */}
       <canvas
         ref={tempCanvasRef}
         className="absolute inset-0 z-20 pointer-events-none"
       />
+
+      {/* Text Input Overlay */}
+      {isTyping && (
+        <textarea
+          ref={inputRef}
+          value={textContent}
+          onChange={(e) => setTextContent(e.target.value)}
+          onBlur={finishText}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              finishText();
+            }
+          }}
+          className="absolute z-30 bg-transparent border-2 border-dashed border-primary-500 outline-none resize-none overflow-hidden"
+          style={{
+            left: textPos.x,
+            top: textPos.y,
+            color: style.color,
+            fontSize: `${Math.max(16, style.width * 3)}px`,
+            fontWeight: 'bold',
+            fontFamily: 'sans-serif',
+            minWidth: '200px',
+            minHeight: '50px',
+            lineHeight: '1.2'
+          }}
+          placeholder="Type here..."
+          autoFocus
+        />
+      )}
     </div>
   );
 };
